@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from collections import defaultdict
 
 class CarRecommendationSystem:
     def __init__(self):
@@ -88,21 +89,73 @@ class CarRecommendationSystem:
             return False
         return True
 
-    def compute_similarity(self):
-        """Compute cosine similarity between car features."""
-        features = ["Make", "Model", "CarType", "Transmission", "Fuel_Policy"]
+    def recommend_similar_cars(self):
+            """Recommend cars similar to the highest-rated car in the filtered list, ensuring diverse makes."""
+            self.filtered_cars = self.filtered_cars.reset_index(drop=True)
+            selected_car_index = self.filtered_cars["Rating"].idxmax()
 
-        # Ensure a copy to avoid `SettingWithCopyWarning`
-        self.filtered_cars = self.filtered_cars.copy()
+            if selected_car_index >= len(self.similarity_matrix):
+                return
 
-        # Fill missing values
-        self.filtered_cars.loc[:, features] = self.filtered_cars[features].fillna("Unknown")
-        self.filtered_cars["combined_features"] = self.filtered_cars[features].agg(" ".join, axis=1)
+            similarity_scores = self.similarity_matrix[selected_car_index]
+            similar_car_indices = np.argsort(similarity_scores)[::-1][1:40]  # Consider top 40 cars for diversity
 
-        vectorizer = TfidfVectorizer()
-        feature_vectors = vectorizer.fit_transform(self.filtered_cars["combined_features"])
-        self.similarity_matrix = cosine_similarity(feature_vectors)
+            # Step 1: Group cars by Make
+            make_groups = {}  
+            for idx in similar_car_indices:
+                car = self.filtered_cars.iloc[idx]
+                make = car["Make"]
+                if make not in make_groups:
+                    make_groups[make] = []
+                make_groups[make].append(car)
 
+            recommended_cars = []
+            used_makes = set()
+
+            # Step 2: Select one car per unique Make first
+            for make, cars in make_groups.items():
+                if len(recommended_cars) < 5:
+                    recommended_cars.append(cars[0])  # Pick the first car from each make
+                    used_makes.add(make)
+
+            # Step 3: If we have fewer than 5, try to add from new makes first
+            remaining_cars = []
+            for make, cars in make_groups.items():
+                if make not in used_makes:
+                    for car in cars:
+                        if not any(car.equals(c) for c in recommended_cars):  # Fix Series comparison issue
+                            remaining_cars.append(car)
+
+            recommended_cars.extend(remaining_cars[: 5 - len(recommended_cars)])
+
+            # Step 4: If still fewer than 5, allow duplicates but prioritize balance
+            if len(recommended_cars) < 5:
+                additional_cars = []
+                for cars in make_groups.values():
+                    for car in cars:
+                        if not any(car.equals(c) for c in recommended_cars):  # Fix Series comparison issue
+                            additional_cars.append(car)
+
+                recommended_cars.extend(additional_cars[: 5 - len(recommended_cars)])
+
+            # Print final recommendations
+            print("\n🔹 Recommended Similar Cars:")
+            for car in recommended_cars:
+                print(f"Model               {car['Model']}")
+                print(f"Make                {car['Make']}")
+                print(f"CarType             {car['CarType']}")
+                print(f"Fuel_Policy         {car['Fuel_Policy']}")
+                print(f"Transmission        {car['Transmission']}")
+                print(f"Price_Per_Hour      {car['Price_Per_Hour']}")
+                print(f"Rating              {car['Rating']}")
+                print(f"Mileage             {car['Mileage_kmpl']}")
+                print(f"Seats               {car['Occupancy']}")
+                print(f"AC                  {car['AC']}")            
+                print(f"Luggage_Capacity    {car['Luggage_Capacity']}")
+                print(f"Agency_Name         {car['Agency_Name']}")
+                print(f"Agency_Price        {car['Base_Fare']}")
+                print("-" * 50)
+                
     def recommend_similar_cars(self):
         """Recommend cars similar to the highest-rated car in the filtered list."""
         self.filtered_cars = self.filtered_cars.reset_index(drop=True)
@@ -112,7 +165,7 @@ class CarRecommendationSystem:
             return
 
         similarity_scores = self.similarity_matrix[selected_car_index]
-        similar_car_indices = np.argsort(similarity_scores)[::-1][1:6]  # Top 5 similar cars
+        similar_car_indices = np.argsort(similarity_scores)[::-1][1:40]  # for diversity
 
         print("\n🔹 Recommended Similar Cars:")
         for idx in similar_car_indices:
