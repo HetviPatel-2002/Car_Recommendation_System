@@ -1,7 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     text-align: center;
-    background-color: #100f0f;
+    background-color: #f4f4f4;
 }
 
 form {
@@ -16,7 +16,8 @@ form {
 input, button {
     display: block;
     width: 100%;
-    margin: 10px 0;
+    margin: 10px -11px;
+    margin-right: 10px ;
     padding: 8px;
 }
 
@@ -24,6 +25,7 @@ button {
     background-color: #28a745;
     color: white;
     border: none;
+    margin: 0;
     cursor: pointer;
 }
 
@@ -42,4 +44,12 @@ li {
     padding: 10px;
     border-radius: 5px;
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+label {
+    display: block;  /* Ensures labels are on a new line */
+    text-align: left;
+    font-weight: bold;
+    color: black;
+    margin-bottom: 5px;
 }
