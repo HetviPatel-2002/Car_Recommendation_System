@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Recommendation System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Car Recommendation System</h1>
+    
+    <form id="recommendForm">
+        <label for="user_id">User ID (Optional):</label>
+        <input type="text" id="user_id" name="user_id">
+
+        <label for="pickup_location">Pickup Location:</label>
+        <input type="text" id="pickup_location" name="pickup_location" required>
+
+        <button type="submit">Get Recommendations</button>
+    </form>
+
+    <h2>Recommended Cars:</h2>
+    <div id="recommendations"></div>
+
+    <script>
+        document.getElementById("recommendForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            let userId = document.getElementById("user_id").value;
+            let pickupLocation = document.getElementById("pickup_location").value;
+
+            let url = `/recommend?pickup_location=${pickupLocation}`;
+            if (userId) {
+                url += `&user_id=${userId}`;
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    let recommendationsDiv = document.getElementById("recommendations");
+                    recommendationsDiv.innerHTML = ""; // Clear previous results
+
+                    if (data.error) {
+                        recommendationsDiv.innerHTML = `<p style="color:red;">Error: ${data.error}</p>`;
+                    } else if (data.recommended_cars.length === 0) {
+                        recommendationsDiv.innerHTML = `<p style="color:blue;">No recommendations found for this location.</p>`;
+                    } else {
+                        let output = "<ul>";
+                        data.recommended_cars.forEach(car => {
+                            output += `
+                                <li>
+                                    <strong>${car.Model}</strong> (${car.Make}) - ₹${car.Price_Per_Hour} per hour <br>
+                                    <em>Type:</em> ${car.CarType} | <em>Seats:</em> ${car.Seats} <br>
+                                    <em>Agency:</em> ${car.Car_Agency} | <em>Pickup Location:</em> ${car.Pickup_Location}
+                                </li><br>`;
+                        });
+                        output += "</ul>";
+                        recommendationsDiv.innerHTML = output;
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    document.getElementById("recommendations").innerHTML = `<p style="color:red;">Something went wrong. Please try again.</p>`;
+                });
+        });
+    </script>
+</body>
+</html>
