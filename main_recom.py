@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import pipeline_CB
 import pipeline_CF
 import pandas as pd  # Import Pandas to retrieve car details
@@ -12,6 +12,10 @@ def get_car_details(car_ids):
 
 def create_app():
     app = Flask(__name__)
+
+    @app.route("/")
+    def home():
+        return render_template("index.html")
 
     @app.route("/recommend", methods=["GET"])
     def recommend():
