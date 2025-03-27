@@ -153,21 +153,29 @@ class CarRecommendationSystem:
                         additional_cars.append(car)
 
             recommended_cars.extend(additional_cars[: 5 - len(recommended_cars)])
+        car_ids = [car["CarID"] for car in recommended_cars]  # Collect Car IDs
+        return car_ids  # ✅ Returning Car IDs now instead of displaying details
 
-        # Print final recommendations
-        print("\n🔹 Recommended Similar Cars:")
-        for car in recommended_cars:
+    def display_car_details(self,car_ids):
+        """Display details of recommended cars based on Car IDs."""
+        if not car_ids:
+            print("\n⚠️ No recommendations available.")
+            return
+
+        print("\n🚗 Recommended Similar Cars:")
+        for i, car_id in enumerate(car_ids, start=1):
+            car = self.car_df[self.car_df["CarID"] == car_id].iloc[0]
             print(f"Model               {car['Model']}")
             print(f"Make                {car['Make']}")
             print(f"CarType             {car['CarType']}")
             print(f"Fuel_Policy         {car['Fuel_Policy']}")
             print(f"Transmission        {car['Transmission']}")
-            print(f"Price_Per_Hour      {car['Price_Per_Hour']}")
+            print(f"Price_Per_Hour      ₹{car['Price_Per_Hour']}")
             print(f"Rating              {car['Rating']}")
-            print(f"Mileage             {car['Mileage_kmpl']}")
+            print(f"Mileage             {car['Mileage_kmpl']} kmpl")
             print(f"Seats               {car['Occupancy']}")
             print(f"AC                  {car['AC']}")            
-            print(f"Luggage_Capacity    {car['Luggage_Capacity']}")
+            print(f"Luggage_Capacity    {car['Luggage_Capacity']} bags")
             print(f"Agency_Name         {car['Agency_Name']}")
             print(f"Agency_Price        {car['Base_Fare']}")
             print("-" * 50)
@@ -194,7 +202,8 @@ def main():
                 return  # Stop further execution
 
             recommender.compute_similarity()
-            recommender.recommend_similar_cars()
+            recommended_car_ids=recommender.recommend_similar_cars()
+            recommender.display_car_details(recommended_car_ids)
 
     except Exception as e:
         print(f"Unexpected error: {e}")
