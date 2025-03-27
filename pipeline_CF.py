@@ -4,7 +4,6 @@ from sqlalchemy import create_engine, exc
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import defaultdict
 
-
 def get_db_connection():
     """Establish optimized database connection using SQLAlchemy with connection pooling."""
     try:
@@ -67,7 +66,6 @@ def merge_data(rental_info, car_table):
         'Base_Fare': 0,
         'Unlimited_Mileage':'Yes'
     }, inplace=True)
-
     return merged_data
 
 def create_user_car_matrix(merged_data, selected_location):
@@ -85,7 +83,6 @@ def create_user_car_matrix(merged_data, selected_location):
     if filtered_data.empty:
         print("❌ No rental data found for the selected location. Stopping process.")
         exit()
-
     return filtered_data.pivot_table(index='UserID', columns='CarID', values='TravelCode', aggfunc='count').fillna(0)
 
 def compute_similarity(user_car_matrix):
@@ -97,11 +94,11 @@ def compute_similarity(user_car_matrix):
     item_similarity = cosine_similarity(user_car_matrix.T)
     return pd.DataFrame(item_similarity, index=user_car_matrix.columns, columns=user_car_matrix.columns)
 
-def recommend_cars(user_id, user_car_matrix, item_sim_df):
-    """Recommend cars based on collaborative filtering with fallback options."""
+def recommend_cars(user_id, user_car_matrix, item_sim_df, car_table):
+    """Recommend cars ensuring diversity in car makes."""
+    
     if user_id not in user_car_matrix.index:
-        print(f"⚠️ User {user_id} not found in the rental data. Providing general recommendations.")
-        return user_car_matrix.columns.tolist()[:5]  # Return top 5 most rented cars as fallback
+        exit()  
 
     rented_cars = user_car_matrix.loc[user_id]
     rented_cars = rented_cars[rented_cars > 0].index.tolist()
@@ -112,51 +109,53 @@ def recommend_cars(user_id, user_car_matrix, item_sim_df):
             similar_cars = item_sim_df[car].sort_values(ascending=False)[1:40]
             recommended_cars.extend(similar_cars.index.tolist())
 
-    return list(set(recommended_cars) - set(rented_cars)) if recommended_cars else user_car_matrix.columns.tolist()[:5]
+    recommended_cars = list(set(recommended_cars) - set(rented_cars))  # Remove already rented cars
 
-def display_recommendations(user_id, selected_location, merged_data, recommended_cars, car_table):
-    """Ensure recommended cars include diverse makes while maintaining at least 5 recommendations."""
+    if not recommended_cars:
+        exit() 
+
+    # Filter recommendations from car_table
     recommended_car_details = car_table[car_table["CarID"].isin(recommended_cars)].copy()
-    if recommended_car_details.empty:
-        print("⚠️ No recommended car details found. Suggesting alternative popular cars.")
-        recommended_car_details = car_table.nlargest(5, 'Rating')  # Recommend top-rated cars as fallback
 
-    print(f"\n🚗 Recommended Cars for User {user_id} at {selected_location}\n")
-
-    # Step 1: Group cars by Make
+    # Group by Make
     make_groups = defaultdict(list)
     for _, row in recommended_car_details.iterrows():
-        make_groups[row["Make"]].append(row)
+        make_groups[row["Make"]].append(row["CarID"])
 
     displayed_cars = []
     used_makes = set()
 
-    # Step 2: Select one car per unique Make first (ensuring diversity)
+    # Step 1: Select one car per unique Make first (ensuring diversity)
     for make, cars in make_groups.items():
         if len(displayed_cars) < 5:
             displayed_cars.append(cars[0])  # Pick the first car of each make
             used_makes.add(make)
 
-    # Step 3: If we have fewer than 5, try to add from new makes first
+    # Step 2: If we have fewer than 5, try to add from new makes first
     remaining_cars = [car for make, cars in make_groups.items() if make not in used_makes for car in cars]
     displayed_cars.extend(remaining_cars[: 5 - len(displayed_cars)])
 
-    # Step 4: If still fewer than 5, allow duplicates but keep balance
+    # Step 3: If still fewer than 5, allow duplicates but keep balance
     if len(displayed_cars) < 5:
-        additional_cars = recommended_car_details[~recommended_car_details["CarID"].isin([car["CarID"] for car in displayed_cars])]
-        additional_cars = additional_cars.sort_values("Rating", ascending=False)  # Sort by highest rating
-        displayed_cars.extend(additional_cars.head(5 - len(displayed_cars)).to_dict(orient="records"))
+        additional_cars = recommended_car_details[~recommended_car_details["CarID"].isin(displayed_cars)]
+        additional_cars = additional_cars.sort_values("Rating", ascending=False)
+        displayed_cars.extend(additional_cars["CarID"].tolist()[:5 - len(displayed_cars)])
 
-    # Step 5: Print final diverse recommendations
-    final_makes = set()
-    final_displayed_cars = []
+    return displayed_cars  # Final diverse car recommendations
 
-    for car in displayed_cars:
-        if car["Make"] not in final_makes or len(final_displayed_cars) < 5:
-            final_makes.add(car["Make"])
-            final_displayed_cars.append(car)
 
-    for row in final_displayed_cars:
+def display_recommendations(user_id, selected_location, recommended_cars, car_table):
+    """Prints recommended cars with complete details."""
+    
+    recommended_car_details = car_table[car_table["CarID"].isin(recommended_cars)].copy()
+
+    if recommended_car_details.empty:
+        print("⚠️ No recommended car details found. Suggesting top-rated alternatives.")
+        recommended_car_details = car_table.nlargest(5, 'Rating')  # Recommend top-rated cars as fallback
+
+    print(f"\n🚗 Recommended Cars for User {user_id} at {selected_location}:\n")
+
+    for _, row in recommended_car_details.iterrows():
         print(f"Make                {row['Make']}")
         print(f"Model               {row['Model']}")
         print(f"CarType             {row['CarType']}")
@@ -171,9 +170,7 @@ def display_recommendations(user_id, selected_location, merged_data, recommended
         print(f"Agency_Name         {row['Agency_Name']}")
         print(f"Agency_Price        {row['Base_Fare']}")
         print("-" * 50)
-
-
-
+    
 def get_valid_user_input(prompt, validation_func):
     """Helper function to get valid user input with retries."""
     while True:
@@ -206,8 +203,9 @@ def main(user_id=None):
             user_id=get_valid_user_input("Enter the user_id (for whom you want the recommendation): ", lambda x: x.isdigit())
             user_id=int(user_id)
 
-        recommended_cars = recommend_cars(user_id, user_car_matrix, item_sim_df)
-        display_recommendations(user_id, selected_location, merged_data, recommended_cars, car_table)
+        recommended_cars = recommend_cars(user_id, user_car_matrix, item_sim_df,car_table)
+        # print(recommended_cars)
+        display_recommendations(user_id, selected_location, recommended_cars, car_table)
 
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
