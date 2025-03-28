@@ -94,55 +94,6 @@ def compute_similarity(user_car_matrix):
     item_similarity = cosine_similarity(user_car_matrix.T)
     return pd.DataFrame(item_similarity, index=user_car_matrix.columns, columns=user_car_matrix.columns)
 
-# def recommend_cars(user_id, user_car_matrix, item_sim_df, car_table):
-#     """Recommend cars ensuring diversity in car makes."""
-    
-#     if user_id not in user_car_matrix.index:
-#         exit()  
-
-#     rented_cars = user_car_matrix.loc[user_id]
-#     rented_cars = rented_cars[rented_cars > 0].index.tolist()
-#     recommended_cars = []
-
-#     for car in rented_cars:
-#         if car in item_sim_df.columns:
-#             similar_cars = item_sim_df[car].sort_values(ascending=False)[1:40]
-#             recommended_cars.extend(similar_cars.index.tolist())
-
-#     recommended_cars = list(set(recommended_cars) - set(rented_cars))  # Remove already rented cars
-
-#     if not recommended_cars:
-#         exit() 
-
-#     # Filter recommendations from car_table
-#     recommended_car_details = car_table[car_table["CarID"].isin(recommended_cars)].copy()
-
-#     # Group by Make
-#     make_groups = defaultdict(list)
-#     for _, row in recommended_car_details.iterrows():
-#         make_groups[row["Make"]].append(row["CarID"])
-
-#     displayed_cars = []
-#     used_makes = set()
-
-#     # Step 1: Select one car per unique Make first (ensuring diversity)
-#     for make, cars in make_groups.items():
-#         if len(displayed_cars) < 5:
-#             displayed_cars.append(cars[0])  # Pick the first car of each make
-#             used_makes.add(make)
-
-#     # Step 2: If we have fewer than 5, try to add from new makes first
-#     remaining_cars = [car for make, cars in make_groups.items() if make not in used_makes for car in cars]
-#     displayed_cars.extend(remaining_cars[: 5 - len(displayed_cars)])
-
-#     # Step 3: If still fewer than 5, allow duplicates but keep balance
-#     if len(displayed_cars) < 5:
-#         additional_cars = recommended_car_details[~recommended_car_details["CarID"].isin(displayed_cars)]
-#         additional_cars = additional_cars.sort_values("Rating", ascending=False)
-#         displayed_cars.extend(additional_cars["CarID"].tolist()[:5 - len(displayed_cars)])
-
-#     return displayed_cars  # Final diverse car recommendations
-
 def recommend_cars(user_id, user_car_matrix, item_sim_df, car_table):
     """Recommend cars ensuring diversity across agencies."""
     
