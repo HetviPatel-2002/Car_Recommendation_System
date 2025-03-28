@@ -150,8 +150,7 @@ def display_recommendations(user_id, selected_location, recommended_cars, car_ta
 
     if recommended_car_details.empty:
         print("⚠️ No recommended car details found. Suggesting top-rated alternatives.")
-        recommended_car_details = car_table.nlargest(5, 'Rating')  # Recommend top-rated cars as fallback
-
+        exit()
     print(f"\n🚗 Recommended Cars for User {user_id} at {selected_location}:\n")
 
     for _, row in recommended_car_details.iterrows():
